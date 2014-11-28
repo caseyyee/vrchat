@@ -6,45 +6,183 @@
     <meta charset="utf-8">
   </head>
   <body>
-  	Peer to conenct to:
-  	<input id="peerId"></input>
-  	<button id="peerConnect">Say hi!</button>
+  	My peer Id: <span id="myPeerId"></span>
 
-  	</textarea>
+  	<br/>
+  	<div id="gl"></div>
+  	<br/>
+
+  	Send HMD data to peer: <input id="peerId"></input>
+  	<button id="connect">Send</button>
+  	<button id="cancel">Cancel</button>
+
+
   </body>
 	<script src="http://cdn.peerjs.com/0.3/peer.min.js"></script>
+	<script src="//cdnjs.cloudflare.com/ajax/libs/three.js/r69/three.min.js"></script>
   <script>
 
   	window.vrChat = (function() {
   		function vrChat() {
   			var self = this;
 
+  			var	myPeerId = document.querySelector('#myPeerId');
+  			var dataIn = document.querySelector('#dataIn');
 
   			this.peer = new Peer({ key: 'lwjd5qra8257b9' });
 
   			this.peer.on('open', function(id) {
-				  console.log('My peer ID is: ' + id);
+  				myPeerId.innerHTML = id;
 				});
+
+  			var scale = 1;
 
 				this.peer.on('connection', function(conn) {
 					conn.on('data', function(data) {
-						console.log(data);
+						//console.log(data);
+						//console.log(camera);
+						eyes.quaternion.copy( data.orientation );
+						eyes.position.copy( data.position ).multiplyScalar(scale);
+						//dataIn.innerHTML = data;
 					})
-				})
+				});
 
-				var inputPeerId = document.querySelector('#peerId');
-				var buttonPeerConnect = document.querySelector('#peerConnect');
-				var textfieldConnData = document.querySelector('#connData');
 
-				buttonPeerConnect.addEventListener('click', function() {
-					var conn = self.peer.connect(inputPeerId.value);
-					conn.on('open', function() {
-						console.log('connection open');
-						conn.send('Hi!');
+				var renderer = new THREE.WebGLRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				var scene = new THREE.Scene();
+				var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.z = 2;
+
+
+				var eyes = new THREE.Group();
+
+				var geometry = new THREE.RingGeometry( 0.1, 0.3, 12 );
+				var material = new THREE.MeshBasicMaterial( { color: 0xffff00, wireframe: true, side: THREE.DoubleSide } );
+				var left = new THREE.Mesh( geometry, material );
+				var right = new THREE.Mesh( geometry, material );
+
+				left.position.x = 0.3;
+				right.position.x = -0.3;
+
+				eyes.add(left);
+				eyes.add(right);
+
+				scene.add( eyes );
+
+				var container = document.querySelector('#gl');
+			  container.appendChild(renderer.domElement);
+
+			  render();
+
+			  function render() {
+			  	renderer.render(scene, camera);
+
+			  	requestAnimationFrame(render);
+			  }
+
+
+
+
+
+
+
+				// this promise resolves when VR devices are detected.
+	    	self.vrReady = new Promise(function (resolve, reject) {
+		      if (navigator.getVRDevices) {
+		        navigator.getVRDevices().then(function (devices) {
+		          console.log('found ' + devices.length + ' devices');
+		          for (var i = 0; i < devices.length; ++i) {
+		            if (devices[i] instanceof HMDVRDevice && !self.hmdDevice) {
+		              self.hmdDevice = devices[i];
+		              console.log('found head mounted display device');
+		            }
+
+		            if (devices[i] instanceof PositionSensorVRDevice &&
+		                devices[i].hardwareUnitId == self.hmdDevice.hardwareUnitId &&
+		                !self.positionDevice) {
+		              self.positionDevice = devices[i];
+		              console.log('found motion tracking devices');
+		              break;
+		            }
+		          }
+
+		          if (self.hmdDevice && self.positionDevice) {
+		            self.vrIsReady = true;
+		            resolve();
+		            return;
+		          }
+
+		          reject('no VR devices found!');
+
+		        })
+		      } else {
+		        reject('no VR implementation found!');
+		      }
+		    });
+
+
+				var connectButton = document.querySelector('#connect');
+				var cancelButton = document.querySelector('#cancel');
+				var connectPeerId = document.querySelector('#peerId').value;
+				var dataOut = document.querySelector('#dataOut');
+
+				connectButton.addEventListener('click', function() {
+					self.vrReady.then(function() {
+						console.log('connecting to ', connectPeerId);
+
+						var conn = self.peer.connect(connectPeerId);
+						conn.on('open', function() {
+
+							var data = {
+									position: {},
+									orientation: {}
+								},
+								orientation, position;
+
+							self.interval = setInterval(function() {
+								orientation = self.positionDevice.getState().orientation;
+								for (var p in orientation) {
+									data.orientation[p] = orientation[p];
+								}
+
+								position = self.positionDevice.getState().position;
+								if (position) {
+									for (var p in orientation) {
+										data.position[p] = position[p];
+									}
+								};
+
+								conn.send(data);
+							}, 50);
+
+						});
+
 					});
 
+					cancelButton.addEventListener('click', function() {
+						if (self.interval) {
+							clearInterval(self.interval);
+						}
 
+					})
 				});
+
+
+
+
+
+
+
+
+				// buttonPeerConnect.addEventListener('click', function() {
+					// var conn = self.peer.connect(inputPeerId.value);
+					// conn.on('open', function() {
+					// 	console.log('connection open');
+					// 	conn.send('Hi!');
+					// });
+
+
 
 
 
