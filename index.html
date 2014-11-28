@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>MozVR</title>
+    <meta charset="utf-8">
+  </head>
+  <body>
+  	Peer to conenct to:
+  	<input id="peerId"></input>
+  	<button id="peerConnect">Say hi!</button>
+
+  	</textarea>
+  </body>
+	<script src="http://cdn.peerjs.com/0.3/peer.min.js"></script>
+  <script>
+
+  	window.vrChat = (function() {
+  		function vrChat() {
+  			var self = this;
+
+
+  			this.peer = new Peer({ key: 'lwjd5qra8257b9' });
+
+  			this.peer.on('open', function(id) {
+				  console.log('My peer ID is: ' + id);
+				});
+
+				this.peer.on('connection', function(conn) {
+					conn.on('data', function(data) {
+						console.log(data);
+					})
+				})
+
+				var inputPeerId = document.querySelector('#peerId');
+				var buttonPeerConnect = document.querySelector('#peerConnect');
+				var textfieldConnData = document.querySelector('#connData');
+
+				buttonPeerConnect.addEventListener('click', function() {
+					var conn = self.peer.connect(inputPeerId.value);
+					conn.on('open', function() {
+						console.log('connection open');
+						conn.send('Hi!');
+					});
+
+
+				});
+
+
+
+				// this.conn = peer.connect('vrchat');
+
+				// this.conn.on('open', function() {
+				// 	conn.send('hi!');
+				// });
+
+
+
+  		};
+
+
+  		return new vrChat();
+  	})();
+  </script>
+ </html>
